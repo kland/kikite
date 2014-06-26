@@ -1,0 +1,98 @@
+@(termsPerContext: Map[String, List[String]])
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<title>KI Kite</title>
+		<style type="text/css">
+			ul.plain {
+				list-style-type: none;
+				padding-left: 0
+			}
+		</style>
+		<script type="text/javascript">
+			function fieldArray(form) //returns an array of the form fields
+			{
+				var elements = []
+				for (var i = 0; i < form.elements.length; i++) {
+					elements.push(form.elements[i])
+				}
+				return elements
+			}
+			
+			
+			function handleResponse(request, resultElem, errorElem) //writes response (subject count) from XMLHttpRequest to resultElem or to errorElem upon failure
+			{
+				if (request.readyState == 4) {
+					if (request.status == 200) {
+						var response = JSON.parse(request.responseText)
+						resultElem.innerHTML = response.count
+						if (errorElem) {
+							errorElem.innerHTML = ""
+						}
+					} else {
+						if (errorElem) {
+							errorElem.innerHTML = "Error: Request failed with status " + request.status
+							
+						}
+					}
+				}
+			}
+			
+			
+			function updateCount(query, resultElem, errorElem) //updates resultElem with the result from query or writes to errorElem upon failure
+			{
+				if (query != "") {
+					//send AJAX request with the query
+					var request = new XMLHttpRequest();
+					request.open("POST", "/q", true);
+					request.setRequestHeader("Content-Type", "application/json")
+					request.onreadystatechange = function () { handleResponse(request, resultElem, errorElem) }
+					request.send(JSON.stringify({q: query}))
+				} else {
+					resultElem.innerHTML = 0
+					if (errorElem) {
+						errorElem.innerHTML = ""
+					}
+				}				
+			}
+			
+			
+			function updateTotal(form) //updates the subject total to reflect the selected terms
+			{
+				//assemble the query
+				var fields = fieldArray(form)
+				var checkedFields = fields.filter(function (field) { return field.checked })
+				var selectedTerms = checkedFields.map(function (field) { return field.name })
+				var query = selectedTerms.join(" & ")
+				
+				updateCount(query, document.getElementById("count"), document.getElementById("error-message"))
+			}
+			
+			
+			function initCounts(form) //initializes subject count for each term
+			{
+				var fields = fieldArray(form)
+				fields.forEach(function (field) { updateCount(field.name, document.getElementById(field.name + "-count")) })
+			}
+		</script>
+	</head>
+	<body onload="initCounts(document.getElementById('terms'))">
+		<p id="error-message" style="color: red"></p>
+
+		<p>Total: <span id="count">0</span></p>
+
+		<form id="terms" onsubmit="updateTotal(this); return false">
+@for((context, terms) <- termsPerContext) {
+			<h2>@context</h2>
+			
+			<ul class="plain">
+	@for(term <- terms) {
+				<li><input type="checkbox" id="@term" name="@term" onchange="this.form.onsubmit()"/><label for="@term">@term (<span id="@term-count">0</span>)</label></li>
+	}
+			</ul>
+}
+		</form>
+	</body>
+</html>
